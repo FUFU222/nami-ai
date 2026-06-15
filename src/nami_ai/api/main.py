@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from nami_ai.agent.forecaster import forecast_from_query
@@ -20,9 +20,16 @@ async def health() -> dict[str, str]:
 
 @app.get("/forecast", response_model=SurfForecast)
 async def forecast_get(query: str) -> SurfForecast:
-    return await forecast_from_query(query)
+    return await _forecast_or_400(query)
 
 
 @app.post("/forecast", response_model=SurfForecast)
 async def forecast_post(request: ForecastRequest) -> SurfForecast:
-    return await forecast_from_query(request.query)
+    return await _forecast_or_400(request.query)
+
+
+async def _forecast_or_400(query: str) -> SurfForecast:
+    try:
+        return await forecast_from_query(query)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

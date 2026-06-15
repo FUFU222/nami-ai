@@ -1,7 +1,10 @@
 from datetime import date, timedelta
 import asyncio
 
+import httpx
+
 from nami_ai.config.spots import get_spot
+from nami_ai.tools import marine, tide, weather
 from nami_ai.tools.marine import fetch_marine_forecast
 from nami_ai.tools.tide import fetch_tide
 from nami_ai.tools.weather import fetch_weather_forecast
@@ -49,3 +52,51 @@ def test_tide_tool_fetches_enoshima_tide736_data() -> None:
     if data["flood"]:
         assert isinstance(data["flood"][0]["cm"], float)
         assert round(data["flood"][0]["cm"], 1) == data["flood"][0]["cm"]
+
+
+def test_marine_tool_wraps_http_failures(monkeypatch) -> None:
+    monkeypatch.setattr(marine.httpx, "AsyncClient", _failing_async_client)
+
+    try:
+        asyncio.run(fetch_marine_forecast(get_spot("鵠沼"), _tomorrow()))
+    except RuntimeError as exc:
+        assert "Marine API request failed" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
+def test_weather_tool_wraps_http_failures(monkeypatch) -> None:
+    monkeypatch.setattr(weather.httpx, "AsyncClient", _failing_async_client)
+
+    try:
+        asyncio.run(fetch_weather_forecast(get_spot("辻堂"), _tomorrow()))
+    except RuntimeError as exc:
+        assert "Weather API request failed" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
+def test_tide_tool_wraps_http_failures(monkeypatch) -> None:
+    monkeypatch.setattr(tide.httpx, "AsyncClient", _failing_async_client)
+
+    try:
+        asyncio.run(fetch_tide(_tomorrow()))
+    except RuntimeError as exc:
+        assert "Tide API request failed" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
+def _failing_async_client(**kwargs):
+    return _FailingAsyncClient()
+
+
+class _FailingAsyncClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def get(self, *args, **kwargs):
+        raise httpx.ConnectError("network unavailable")
