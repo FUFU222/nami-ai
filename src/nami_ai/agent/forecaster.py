@@ -211,6 +211,7 @@ def build_heuristic_forecast(
         swell_type=swell_type,
         wind=wind,
         best_windows=best_windows,
+        reasons=score_reasons,
         summary=_summary(
             wave_size=wave_size,
             wave_height=wave_height,
@@ -243,6 +244,7 @@ def _judgement_prompt(spot: SurfSpot, target_date: date, raw_data: dict[str, Any
         "- 風速2m/s未満はglassy。オフショア、クロス、オンショアをスポットのoffshore_dirから判断。\n"
         "- 満潮・干潮間の3〜7分、サンセット1.5〜2時間前を優先。\n"
         "- 6'0 fish, 32Lなので腰から遊べるが、頭オーバーは苦手。\n"
+        "- reasons には波高、周期、風、うねり方向、潮やサンセットなどの判断理由を短い日本語の配列で入れる。\n"
         f"spot metadata: {json.dumps(spot.__dict__, ensure_ascii=False)}\n"
         f"raw data: {json.dumps(raw_data, ensure_ascii=False)}"
     )
@@ -359,8 +361,9 @@ def _summary(
         "cross": "クロス気味で少しヨレそう",
         "onshore": "オンショアでまとまりに欠ける",
     }.get(wind, wind)
+    wind_connector = "なので" if wind_text.endswith("そう") else "ので"
     tide_text = f"{tide_name}で潮の動きも見たい" if tide_name else "潮の動きも見たい"
-    return f"{wave_size}前後、沖波高{wave_height:.2f}mの{swell_type}寄り。{board} なら遊べる。{wind_text}ので、{tide_text}。{reason_text}"
+    return f"{wave_size}前後、沖波高{wave_height:.2f}mの{swell_type}寄り。{board} なら遊べる。{wind_text}{wind_connector}、{tide_text}。{reason_text}"
 
 
 def _caution(*, wave_size: str, wave_height: float, wind: str, wind_speed: float, rideable: bool) -> str | None:

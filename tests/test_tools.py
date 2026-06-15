@@ -87,8 +87,68 @@ def test_tide_tool_wraps_http_failures(monkeypatch) -> None:
         raise AssertionError("expected RuntimeError")
 
 
+def test_tide_tool_rejects_chart_without_target_date(monkeypatch) -> None:
+    monkeypatch.setattr(
+        tide.httpx,
+        "AsyncClient",
+        lambda **kwargs: _json_async_client(
+            {
+                "tide": {
+                    "chart": {
+                        "2026-06-21": {
+                            "flood": [],
+                            "edd": [],
+                            "sun": {},
+                            "moon": {"title": "中潮"},
+                        }
+                    }
+                }
+            }
+        ),
+    )
+
+    try:
+        asyncio.run(fetch_tide(date(2026, 6, 20)))
+    except RuntimeError as exc:
+        assert "no chart data for 2026-06-20" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
+def test_tide_tool_wraps_malformed_tide_event(monkeypatch) -> None:
+    monkeypatch.setattr(
+        tide.httpx,
+        "AsyncClient",
+        lambda **kwargs: _json_async_client(
+            {
+                "tide": {
+                    "chart": {
+                        "2026-06-20": {
+                            "flood": [{"time": "12:00", "unix": 1}],
+                            "edd": [],
+                            "sun": {},
+                            "moon": {"title": "中潮"},
+                        }
+                    }
+                }
+            }
+        ),
+    )
+
+    try:
+        asyncio.run(fetch_tide(date(2026, 6, 20)))
+    except RuntimeError as exc:
+        assert "malformed tide event" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+
 def _failing_async_client(**kwargs):
     return _FailingAsyncClient()
+
+
+def _json_async_client(payload: dict):
+    return _JsonAsyncClient(payload)
 
 
 class _FailingAsyncClient:
@@ -100,3 +160,30 @@ class _FailingAsyncClient:
 
     async def get(self, *args, **kwargs):
         raise httpx.ConnectError("network unavailable")
+
+
+class _JsonAsyncClient:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def get(self, *args, **kwargs):
+        return _JsonResponse(self.payload)
+
+
+class _JsonResponse:
+    status_code = 200
+
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.payload

@@ -51,6 +51,12 @@ def test_heuristic_forecast_returns_structured_surf_forecast() -> None:
     assert "判断理由" in forecast.summary
     assert "周期7.5秒" in forecast.summary
     assert "うねり方向" in forecast.summary
+    assert forecast.reasons == [
+        "沖波高0.62mで体感腰",
+        "周期7.5秒で少し押しがある",
+        "風1.5m/sで面は期待できる",
+        "うねり方向がポイントに合う",
+    ]
 
 
 def test_heuristic_forecast_keeps_sunset_window_when_tide_has_many_events() -> None:
@@ -87,6 +93,19 @@ def test_heuristic_forecast_allows_weak_onshore_for_fish_board() -> None:
     assert forecast.rideable is True
     assert forecast.caution is not None
     assert "オンショア" in forecast.caution
+
+
+def test_heuristic_forecast_cross_wind_summary_uses_natural_japanese() -> None:
+    spot = get_spot("辻堂")
+    raw_data = _raw_data_for_rideable_tsujido()
+    raw_data["weather"]["hours"][0]["wind_speed_mps"] = 3.0
+    raw_data["weather"]["hours"][0]["wind_direction_deg"] = 90.0
+
+    forecast = build_heuristic_forecast(spot, date(2026, 6, 14), raw_data)
+
+    assert forecast.wind == "cross"
+    assert "ヨレそうなので" in forecast.summary
+    assert "ヨレそうので" not in forecast.summary
 
 
 def test_heuristic_forecast_marks_overhead_as_not_rideable_for_rider_profile() -> None:
@@ -130,6 +149,17 @@ def test_forecast_from_query_falls_back_when_gemini_path_fails(monkeypatch) -> N
     assert forecast.rideable is True
     assert forecast.caution is not None
     assert "Gemini 判断に失敗" in forecast.caution
+
+
+def test_judgement_prompt_asks_gemini_for_structured_reasons() -> None:
+    prompt = forecaster._judgement_prompt(
+        get_spot("辻堂"),
+        date(2026, 6, 14),
+        _raw_data_for_rideable_tsujido(),
+    )
+
+    assert "reasons" in prompt
+    assert "判断理由" in prompt
 
 
 def _raw_data_for_rideable_tsujido() -> dict:
