@@ -32,8 +32,6 @@ async def fetch_tide(target_date: date) -> dict[str, Any]:
         raise RuntimeError("Tide API response did not include tide.chart") from exc
 
     day_payload = chart.get(target_date.isoformat())
-    if day_payload is None and chart:
-        day_payload = next(iter(chart.values()))
     if not isinstance(day_payload, dict):
         raise RuntimeError(f"Tide API returned no chart data for {target_date.isoformat()}")
 
@@ -51,8 +49,11 @@ async def fetch_tide(target_date: date) -> dict[str, Any]:
 
 
 def _normalize_tide_event(event: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "time": str(event.get("time", ""))[:5],
-        "cm": round(float(event["cm"]), 1),
-        "unix": int(event["unix"]) if event.get("unix") is not None else None,
-    }
+    try:
+        return {
+            "time": str(event.get("time", ""))[:5],
+            "cm": round(float(event["cm"]), 1),
+            "unix": int(event["unix"]) if event.get("unix") is not None else None,
+        }
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(f"Tide API returned malformed tide event: {event}") from exc

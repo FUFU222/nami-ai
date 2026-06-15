@@ -13,8 +13,10 @@ def test_surf_forecast_schema_accepts_required_output_shape() -> None:
         swell_type="mixed",
         wind="offshore",
         best_windows=[TimeWindow(start="16:30", end="17:30", reason="サンセット前")],
+        reasons=["沖波高0.60mで体感腰", "風は弱め"],
         summary="小波だけど fish なら遊べる。",
         caution=None,
     )
 
     assert forecast.model_dump()["best_windows"][0]["start"] == "16:30"
+    assert forecast.model_dump()["reasons"] == ["沖波高0.60mで体感腰", "風は弱め"]

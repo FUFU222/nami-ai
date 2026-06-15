@@ -13,6 +13,7 @@ def format_forecast(forecast: SurfForecast) -> str:
     windows = "\n".join(
         f"- {window.start}-{window.end}: {window.reason}" for window in forecast.best_windows
     )
+    reasons = "\n".join(f"- {reason}" for reason in forecast.reasons)
     lines = [
         f"{forecast.spot} / {forecast.date}",
         f"スコア: {forecast.score}/5",
@@ -25,6 +26,8 @@ def format_forecast(forecast: SurfForecast) -> str:
         f"風: {forecast.wind}",
         "おすすめ時間:",
         windows or "- 目立った推奨時間なし",
+        "判断理由:",
+        reasons or "- 詳細理由なし",
         f"一言: {forecast.summary}",
     ]
     if forecast.caution:

@@ -22,5 +22,6 @@ class SurfForecast(BaseModel):
     swell_type: Literal["ground", "wind", "mixed"]
     wind: str
     best_windows: list[TimeWindow]
+    reasons: list[str] = Field(default_factory=list)
     summary: str
     caution: str | None = None
