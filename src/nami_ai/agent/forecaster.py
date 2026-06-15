@@ -174,7 +174,12 @@ def build_heuristic_forecast(
     sunset_window = recommend_sunset_window(sunset) if sunset else None
     best_windows = _select_best_windows(tide_windows, sunset_window)
 
-    rideable = wave_height >= 0.4 and wind != "onshore"
+    rideable = _is_rideable_for_profile(
+        wave_height=wave_height,
+        wave_size=wave_size,
+        wind=wind,
+        wind_speed=wind_speed,
+    )
     score = _score_conditions(
         wave_height=wave_height,
         swell_period=swell_period,
@@ -182,6 +187,8 @@ def build_heuristic_forecast(
         spot=spot,
         wind=wind,
     )
+    if not rideable:
+        score = min(score, 3)
     caution = _caution(wave_size=wave_size, wave_height=wave_height, wind=wind, wind_speed=wind_speed, rideable=rideable)
 
     return SurfForecast(
@@ -265,6 +272,18 @@ def _score_conditions(
     if swell_direction is not None and _direction_in_window(float(swell_direction), spot.swell_window):
         score += 1
     return max(1, min(5, score))
+
+
+def _is_rideable_for_profile(
+    *, wave_height: float, wave_size: str, wind: str, wind_speed: float
+) -> bool:
+    if wave_size == "overhead" or wave_height >= 1.5:
+        return False
+    if wave_height < 0.4:
+        return False
+    if wind == "onshore" and wind_speed >= 4.0:
+        return False
+    return True
 
 
 def _direction_in_window(direction: float, window: tuple[float, float]) -> bool:
