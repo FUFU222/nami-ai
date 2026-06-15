@@ -72,6 +72,37 @@ def test_heuristic_forecast_keeps_sunset_window_when_tide_has_many_events() -> N
     assert any("サンセット" in window.reason for window in forecast.best_windows)
 
 
+def test_heuristic_forecast_allows_weak_onshore_for_fish_board() -> None:
+    spot = get_spot("辻堂")
+    raw_data = _raw_data_for_rideable_tsujido()
+    raw_data["weather"]["hours"][0]["wind_speed_mps"] = 2.5
+    raw_data["weather"]["hours"][0]["wind_direction_deg"] = 205.0
+
+    forecast = build_heuristic_forecast(spot, date(2026, 6, 14), raw_data)
+
+    assert forecast.wind == "onshore"
+    assert forecast.rideable is True
+    assert forecast.caution is not None
+    assert "オンショア" in forecast.caution
+
+
+def test_heuristic_forecast_marks_overhead_as_not_rideable_for_rider_profile() -> None:
+    spot = get_spot("辻堂")
+    raw_data = _raw_data_for_rideable_tsujido()
+    raw_data["marine"]["hours"][0]["wave_height_m"] = 1.7
+    raw_data["marine"]["hours"][0]["swell_period_s"] = 9.0
+    raw_data["weather"]["hours"][0]["wind_speed_mps"] = 1.0
+    raw_data["weather"]["hours"][0]["wind_direction_deg"] = 20.0
+
+    forecast = build_heuristic_forecast(spot, date(2026, 6, 14), raw_data)
+
+    assert forecast.wave_size == "overhead"
+    assert forecast.rideable is False
+    assert forecast.score <= 3
+    assert forecast.caution is not None
+    assert "頭オーバー" in forecast.caution
+
+
 def test_forecast_from_query_falls_back_when_gemini_path_fails(monkeypatch) -> None:
     monkeypatch.setenv("GOOGLE_API_KEY", "dummy")
 
