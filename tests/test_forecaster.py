@@ -48,6 +48,9 @@ def test_heuristic_forecast_returns_structured_surf_forecast() -> None:
     assert forecast.best_windows[0].start == "07:48"
     assert any(window.start == "16:56" for window in forecast.best_windows)
     assert "fish" in forecast.summary
+    assert "判断理由" in forecast.summary
+    assert "周期7.5秒" in forecast.summary
+    assert "うねり方向" in forecast.summary
 
 
 def test_heuristic_forecast_keeps_sunset_window_when_tide_has_many_events() -> None:
@@ -99,6 +102,8 @@ def test_heuristic_forecast_marks_overhead_as_not_rideable_for_rider_profile() -
     assert forecast.wave_size == "overhead"
     assert forecast.rideable is False
     assert forecast.score <= 3
+    assert "物足りない" not in forecast.summary
+    assert "無理しない" in forecast.summary
     assert forecast.caution is not None
     assert "頭オーバー" in forecast.caution
 

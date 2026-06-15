@@ -189,6 +189,15 @@ def build_heuristic_forecast(
     )
     if not rideable:
         score = min(score, 3)
+    score_reasons = _score_reasons(
+        wave_height=wave_height,
+        wave_size=wave_size,
+        swell_period=swell_period,
+        swell_direction=marine_hour.get("swell_direction_deg"),
+        spot=spot,
+        wind=wind,
+        wind_speed=wind_speed,
+    )
     caution = _caution(wave_size=wave_size, wave_height=wave_height, wind=wind, wind_speed=wind_speed, rideable=rideable)
 
     return SurfForecast(
@@ -209,6 +218,7 @@ def build_heuristic_forecast(
             wind=wind,
             tide_name=tide.get("tide_name"),
             rideable=rideable,
+            score_reasons=score_reasons,
         ),
         caution=caution,
     )
@@ -286,6 +296,39 @@ def _is_rideable_for_profile(
     return True
 
 
+def _score_reasons(
+    *,
+    wave_height: float,
+    wave_size: str,
+    swell_period: float,
+    swell_direction: Any,
+    spot: SurfSpot,
+    wind: str,
+    wind_speed: float,
+) -> list[str]:
+    reasons = [f"沖波高{wave_height:.2f}mで体感{wave_size}"]
+    if swell_period >= 7.0:
+        reasons.append(f"周期{swell_period:.1f}秒で少し押しがある")
+    else:
+        reasons.append(f"周期{swell_period:.1f}秒でパワーは控えめ")
+
+    if wind == "glassy":
+        reasons.append(f"風{wind_speed:.1f}m/sで面は期待できる")
+    elif wind == "offshore":
+        reasons.append(f"風{wind_speed:.1f}m/sのオフショア")
+    elif wind == "onshore":
+        reasons.append(f"風{wind_speed:.1f}m/sのオンショア")
+    else:
+        reasons.append(f"風{wind_speed:.1f}m/sのクロス")
+
+    if swell_direction is not None:
+        if _direction_in_window(float(swell_direction), spot.swell_window):
+            reasons.append("うねり方向がポイントに合う")
+        else:
+            reasons.append("うねり方向はポイントから少し外れる")
+    return reasons
+
+
 def _direction_in_window(direction: float, window: tuple[float, float]) -> bool:
     start, end = window
     if start <= end:
@@ -301,10 +344,14 @@ def _summary(
     wind: str,
     tide_name: str | None,
     rideable: bool,
+    score_reasons: list[str],
 ) -> str:
     board = RIDER_PROFILE["board"]
+    reason_text = "判断理由: " + "、".join(score_reasons) + "。"
     if not rideable:
-        return f"{wave_size}前後で物足りない。{board} でも入る価値は薄め。潮が動く時間だけ様子見。"
+        if wave_size == "overhead" or wave_height >= 1.5:
+            return f"{wave_size}前後で{board}には強め。無理しない判断が必要。{reason_text}"
+        return f"{wave_size}前後で物足りない。{board} でも入る価値は薄め。{reason_text}"
 
     wind_text = {
         "glassy": "風は弱く面は期待できる",
@@ -313,7 +360,7 @@ def _summary(
         "onshore": "オンショアでまとまりに欠ける",
     }.get(wind, wind)
     tide_text = f"{tide_name}で潮の動きも見たい" if tide_name else "潮の動きも見たい"
-    return f"{wave_size}前後、沖波高{wave_height:.2f}mの{swell_type}寄り。{board} なら遊べる。{wind_text}ので、{tide_text}。"
+    return f"{wave_size}前後、沖波高{wave_height:.2f}mの{swell_type}寄り。{board} なら遊べる。{wind_text}ので、{tide_text}。{reason_text}"
 
 
 def _caution(*, wave_size: str, wave_height: float, wind: str, wind_speed: float, rideable: bool) -> str | None:
