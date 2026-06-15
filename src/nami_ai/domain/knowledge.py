@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -20,10 +21,17 @@ RIDER_PROFILE = {
 
 def parse_target_date(query: str, *, base_date: date | None = None) -> date:
     current = base_date or datetime.now(JST).date()
+    if "明後日" in query or "あさって" in query:
+        return current + timedelta(days=2)
     if "明日" in query or "あした" in query:
         return current + timedelta(days=1)
     if "今日" in query or "きょう" in query:
         return current
+
+    date_match = re.search(r"(\d{4})[-/](\d{1,2})[-/](\d{1,2})", query)
+    if date_match:
+        year, month, day = (int(part) for part in date_match.groups())
+        return date(year, month, day)
 
     for token in query.replace("/", "-").split():
         try:

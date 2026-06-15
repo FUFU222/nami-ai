@@ -18,6 +18,18 @@ def test_parse_target_date_understands_today_and_tomorrow() -> None:
     assert parse_target_date("今日の辻堂どう？", base_date=base) == date(2026, 6, 13)
 
 
+def test_parse_target_date_understands_day_after_tomorrow() -> None:
+    base = date(2026, 6, 13)
+
+    assert parse_target_date("明後日の鵠沼どう？", base_date=base) == date(2026, 6, 15)
+
+
+def test_parse_target_date_extracts_slash_date_inside_sentence() -> None:
+    base = date(2026, 6, 13)
+
+    assert parse_target_date("2026/06/20の鵠沼どう？", base_date=base) == date(2026, 6, 20)
+
+
 def test_wave_height_maps_to_shonan_body_size() -> None:
     assert body_size_from_wave_height(0.1) == "flat"
     assert body_size_from_wave_height(0.45) == "腰"
